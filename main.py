@@ -1,4 +1,3 @@
-from cProfile import run
 from terminal import Terminal
 
 def main():
@@ -10,11 +9,11 @@ def main():
             command = input()
 
             if command == "1":
-                manager.get_password(input())
+                manager.get_password()
             elif command == "2":
                 manager.store_password()
             elif command == "3":
-                manager.delete_password(input())
+                manager.delete_password()
             elif command == "4":
                 manager.update_password()
             elif command == "5":
