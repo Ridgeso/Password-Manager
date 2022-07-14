@@ -1,84 +1,89 @@
-"""
-Scripts to manipulate the database
-"""
-import os
 import sqlite3
 
 
-def select(command):
-    """
-    Simple select command for extracting passwords
-    """
-    with sqlite3.connect("menager.bd") as passes:
-        pa = passes.cursor()
+class SingletonMeta(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super(SingletonMeta, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+
+
+class Database(metaclass=SingletonMeta):
+    __database_name = "manager.db"
+
+    def __init__(self):
+        self.database = sqlite3.connect(self.__database_name)
+        self.cursor = self.database.cursor()
+
+        if self.check_if_empty():
+            self.create_new_data()
+
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.database.close()
+
+    def select(self, command):
         if command == "all":
-            pa.execute("SELECT * FROM paswords")
-            values = pa.fetchall()
+            self.cursor.execute("SELECT * FROM paswords;")
+            values = self.cursor.fetchall()
         else:
-            pa.execute("SELECT * FROM paswords WHERE site_name='{}'".format(command))
-            values = pa.fetchone()
-        passes.commit()
-    return values
+            self.cursor.execute("SELECT * FROM paswords WHERE site_name=:command;", {"command": command})
+            values = self.cursor.fetchone()
+        self.database.commit()
+        return values
 
 
-def insert(email, password, login, site, stl):
-    """
-    This function takes arguments from terminal.store_password function
-    and database insertion
-    """
-    with sqlite3.connect("menager.bd") as passes:
-        pa = passes.cursor()
-        pa.execute(
-            """INSERT INTO paswords VALUES (:email, :password, :login, :site, :stl)""",
+    def insert(self, email, password, login, site, stl):
+        self.cursor.execute(
+            """INSERT INTO paswords(email, pass, login, site_name, site_link)
+                        VALUES(:email, :password, :login, :site, :stl);""",
             {
                 "email": email,
                 "password": password,
                 "login": login,
                 "site": site,
                 "stl": stl
-        })
-        passes.commit()
+            }
+        )
+        self.database.commit()
 
+    def update(self, type_, old, new, site):
+        if type_ == "site":
+            type_ = "site_name"
 
-def update(type_, old, new, site):
-    """
-    With terminal.update_password function here you can
-    update values in databes
-    """
-    if type_ == "site":
-        type_ = "site_name"
-    with sqlite3.connect("menager.bd") as passes:
-        pa = passes.cursor()
         if site:
-            pa.execute(f"UPDATE paswords SET site_link='{site}' WHERE site_name='{old}'")
-        pa.execute(f"UPDATE paswords SET {type_}='{new}' WHERE {type_}='{old}'")
-        passes.commit()
+            self.cursor.execute(f"UPDATE paswords SET site_link='{site}' WHERE site_name='{old}';")
+        self.cursor.execute(f"UPDATE paswords SET {type_}='{new}' WHERE {type_}='{old}';")
+        self.database.commit()
 
-
-def delete(command):
-    """Deleting useless stuffs"""
-    with sqlite3.connect("menager.bd") as passes:
-        pa = passes.cursor()
+    def delete(self, command):
         if command == "all":
-            pa.execute("DELETE FROM paswords")
+            self.cursor.execute("DROP TABLE paswords;")
+            self.create_new_data()
         else:
-            pa.execute("DELETE FROM paswords WHERE site_name='{}'".format(command))
-        passes.commit()
+            self.cursor.execute("DELETE FROM paswords WHERE site_name=':command';", {"command": command})
+        self.database.commit()
 
-
-def create_new_data():
-    """
-    If the hole data base is broken here you can restart it
-    """
-    os.remove("menager.bd")
-    with sqlite3.connect("menager.bd") as passes:
-        pa = passes.cursor()
-        pa.execute("""
+    def create_new_data(self):
+        self.cursor.execute("""
             CREATE TABLE paswords (
-                email text,
-                pass text,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email text NOT NULL,
+                pass text NOT NULL,
                 login text,
-                site_name text,
+                site_name text NOT NULL,
                 site_link text
-            )""")
-        passes.commit()
+            );""")
+        self.database.commit()
+
+    def check_if_empty(self):
+        self.cursor.execute("""SELECT name FROM sqlite_master WHERE type='table';""")
+        if not self.cursor.fetchall():
+            return True
+        else:
+            return False

@@ -1,35 +1,24 @@
-"""
-Welcome to my simple password menager, where you have
-avaliable few functions to store, delete, update and finde
-your passwords and logins from database
-"""
-from terminal import (
-    get_password,
-    store_password,
-    delete_password,
-    update_password,
-    print_setup
-)
-import os
-
+from cProfile import run
+from terminal import Terminal
 
 def main():
-    while True:
-        # os.system("clear")
-        print_setup()
-        command = input()
+    run = True
 
-        if command == "1":
-            get_password(input())
-        elif command == "2":
-            store_password()
-        elif command == "3":
-            delete_password(input())
-        elif command == "4":
-            update_password()
-        elif command == "5":
-            exit()
-        # input()
+    with Terminal() as manager:
+        while run:
+            manager.print_setup()
+            command = input()
+
+            if command == "1":
+                manager.get_password(input())
+            elif command == "2":
+                manager.store_password()
+            elif command == "3":
+                manager.delete_password(input())
+            elif command == "4":
+                manager.update_password()
+            elif command == "5":
+                run = False
 
 
 if __name__ == '__main__':
