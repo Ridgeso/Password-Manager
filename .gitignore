@@ -1,2 +1,3 @@
-/manager.db
-/__pycache__
+manager.db
+__pycache__
+key.bin

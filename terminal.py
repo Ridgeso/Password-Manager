@@ -44,7 +44,7 @@ class Terminal(database.Database):
 
 
     def store_password(self):
-        password = self.hash.create_password()
+        password = security.create_password()
         password = self.hash.decrypt(password)
         email = input("Enter email: ")
         login = input("Enter login (not requried): ")
