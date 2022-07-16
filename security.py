@@ -21,18 +21,6 @@ class AES:
     Rows = 4
     BitsNumber = 4
     Rounds = 10
-    MixColumns = np.array([
-        [2, 3, 1, 1],
-        [1, 2, 3, 1],
-        [1, 1, 2, 3],
-        [3, 1, 1, 2]
-    ], dtype=np.uint8)
-    InvMixColumns = np.array([
-        [14, 11, 13,  9],
-        [9,  14, 11, 13],
-        [13,  9, 14, 11],
-        [11, 13,  9, 14]
-    ], dtype=np.uint8)
     SBox = np.array([
         0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
         0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -115,46 +103,51 @@ class AES:
             self.state[i] = np.array([self.state[i][(j - i)%4] for j in range(4)], dtype=np.uint8)
 
     @staticmethod
-    def _xtime(t):
-        return (t<<1) ^ (((t>>7) & 1) * 0x1b)
+    def _mul2(x):
+        """
+        x : 0000 0000 | 8 bits
+        2x = (x * 2) +
+            if x>>1 == 1: 27
+            else        :  0
+        """
+        return (x<<1) ^ (((x>>7) & 1) * 0x1b)
+    
+    @staticmethod
+    def _mul3(x):
+        """3x = 2x + x"""
+        return AES._mul2(x) ^ x
 
     def mix_columns(self):
         for i in range(4):
-            col = self.state[: ,i]
-            col = self.MixColumns.dot(col)
-            self.state[: ,i] = col
-            # self.state[i] = self.MixColumns.dot(self.state[i])
-        # for i in range(4):
-        #     t   = self.state[i][0]
-        #     Tmp = self.state[i][0] ^ self.state[i][1] ^ self.state[i][2] ^ self.state[i][3]
-        #     Tm  = self.state[i][0] ^ self.state[i][1]; Tm = self._xtime(Tm); self.state[i][0] ^= Tm ^ Tmp
-        #     Tm  = self.state[i][1] ^ self.state[i][2]; Tm = self._xtime(Tm); self.state[i][1] ^= Tm ^ Tmp
-        #     Tm  = self.state[i][2] ^ self.state[i][3]; Tm = self._xtime(Tm); self.state[i][2] ^= Tm ^ Tmp
-        #     Tm  = self.state[i][3] ^ t;                Tm = self._xtime(Tm); self.state[i][3] ^= Tm ^ Tmp 
+            a, b, c, d = self.state[: ,i]
+            self.state[0][i] = self._mul2(a) ^ self._mul3(b) ^ c ^ d # 2a + 3b +  c +  d
+            self.state[1][i] = a ^ self._mul2(b) ^ self._mul3(c) ^ d #  a + 2b + 3c +  d
+            self.state[2][i] = a ^ b ^ self._mul2(c) ^ self._mul3(d) #  a +  b + 2c + 3d
+            self.state[3][i] = self._mul3(a) ^ b ^ c ^ self._mul2(d) # 3a +  b +  c + 2d
+    
+    def _mul_9(self, x):
+        """9x = (((2x) * 2) * 2) + x"""
+        return     x ^ self._mul2(self._mul2(self._mul2(x)))
 
-    def multiply(self, x, y):
-        return (((y & 1) * x) ^
-            ((y>>1 & 1) * self._xtime(x)) ^
-            ((y>>2 & 1) * self._xtime(self._xtime(x))) ^
-            ((y>>3 & 1) * self._xtime(self._xtime(self._xtime(x)))) ^
-            ((y>>4 & 1) * self._xtime(self._xtime(self._xtime(self._xtime(x))))))
+    def _mul11(self, x):
+        """11x = ((((2x) * 2) + x) * 2) + x"""
+        return x ^ self._mul2(x ^ self._mul2(self._mul2(x)))
+    
+    def _mul13(self, x):
+        """13x = ((((2x) + x) * 2) * 2) + x"""
+        return x ^ self._mul2(self._mul2(x ^ self._mul2(x)))
+    
+    def _mul14(self, x):
+        """14x = ((((2x) + x) * 2) + x) * 2"""
+        return self._mul2(x ^ self._mul2(x ^ self._mul2(x)))
 
     def inv_mix_columns(self):
         for i in range(4):
-            col = self.state[: ,i]
-            col = self.InvMixColumns.dot(col)
-            self.state[: ,i] = col
-            # self.state[i] = self.InvMixColumns.dot(self.state[i])
-        # for i in range(4):
-        #     a = self.state[i][0]
-        #     b = self.state[i][1]
-        #     c = self.state[i][2]
-        #     d = self.state[i][3]
-
-        #     self.state[i][0] = self.multiply(a, 0x0e) ^ self.multiply(b, 0x0b) ^ self.multiply(c, 0x0d) ^ self.multiply(d, 0x09)
-        #     self.state[i][1] = self.multiply(a, 0x09) ^ self.multiply(b, 0x0e) ^ self.multiply(c, 0x0b) ^ self.multiply(d, 0x0d)
-        #     self.state[i][2] = self.multiply(a, 0x0d) ^ self.multiply(b, 0x09) ^ self.multiply(c, 0x0e) ^ self.multiply(d, 0x0b)
-        #     self.state[i][3] = self.multiply(a, 0x0b) ^ self.multiply(b, 0x0d) ^ self.multiply(c, 0x09) ^ self.multiply(d, 0x0e)
+            a, b, c, d = self.state[: ,i]
+            self.state[0][i] = self._mul14(a) ^ self._mul11(b) ^ self._mul13(c) ^ self._mul_9(d) # 14a + 11b + 13c +  9d
+            self.state[1][i] = self._mul_9(a) ^ self._mul14(b) ^ self._mul11(c) ^ self._mul13(d) #  9a + 14b + 11c + 13d
+            self.state[2][i] = self._mul13(a) ^ self._mul_9(b) ^ self._mul14(c) ^ self._mul11(d) # 13a +  9b + 14c + 11d
+            self.state[3][i] = self._mul11(a) ^ self._mul13(b) ^ self._mul_9(c) ^ self._mul14(d) # 11a + 13b +  9c + 14d
 
     def sub_bytes(self):
         for i in range(4):
@@ -178,16 +171,12 @@ class AES:
         print(self.state)
         
         self.add_round_key(0)
-        # print("1st ADD\n", self.state); input()
+
         for round in range(1, self.Rounds):
             self.sub_bytes()
-            # print("SUM\n", self.state); input()
             self.shitf_rows()
-            # print("SHITF\n", self.state); input()
             self.mix_columns()
-            # print("MIX\n", self.state); input()
             self.add_round_key(round)
-            # print("ADD\n", self.state); input()
         
         self.sub_bytes()
         self.shitf_rows()
