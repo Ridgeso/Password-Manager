@@ -18,7 +18,7 @@ class Database(metaclass=SingletonMeta):
         self.database = sqlite3.connect(self.__database_name)
         self.cursor = self.database.cursor()
 
-        if self.check_if_empty():
+        if self._check_if_empty():
             self.create_new_data()
 
     def __enter__(self):
@@ -52,13 +52,14 @@ class Database(metaclass=SingletonMeta):
         )
         self.database.commit()
 
-    def update(self, type_, old, new, site):
-        if type_ == "site":
-            type_ = "site_name"
+    def update(self, column, old, new, site):
+        if column == "site":
+            column = "site_name"
 
         if site:
-            self.cursor.execute(f"UPDATE paswords SET site_link='{site}' WHERE site_name='{old}';")
-        self.cursor.execute(f"UPDATE paswords SET {type_}='{new}' WHERE {type_}='{old}';")
+            self.cursor.execute("UPDATE paswords SET site_name=:new, site_link=:site WHERE site_name=:old;", {"new": new, "old": old, "site": site})
+        else:
+            self.cursor.execute(f"UPDATE paswords SET {column}=:new WHERE {column}=:old;", {"new": new, "old": old})
         self.database.commit()
 
     def delete(self, command):
@@ -66,7 +67,7 @@ class Database(metaclass=SingletonMeta):
             self.cursor.execute("DROP TABLE paswords;")
             self.create_new_data()
         else:
-            self.cursor.execute("DELETE FROM paswords WHERE site_name=':command';", {"command": command})
+            self.cursor.execute("DELETE FROM paswords WHERE site_name=:command;", {"command": command})
         self.database.commit()
 
     def create_new_data(self):
@@ -74,14 +75,14 @@ class Database(metaclass=SingletonMeta):
             CREATE TABLE paswords (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email text NOT NULL,
-                pass text NOT NULL,
+                pass character(16) NOT NULL,
                 login text,
                 site_name text NOT NULL,
                 site_link text
             );""")
         self.database.commit()
 
-    def check_if_empty(self):
+    def _check_if_empty(self):
         self.cursor.execute("""SELECT name FROM sqlite_master WHERE type='table';""")
         if not self.cursor.fetchall():
             return True
