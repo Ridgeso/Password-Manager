@@ -1,15 +1,16 @@
 import numpy as np
 from random import choices, choice
+from string import (
+    ascii_lowercase,
+    ascii_uppercase,
+    punctuation,
+    digits
+)
 
 
 def create_password(length=16):
-    alphC    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    alphL    = "abcdefghijklmnopqrstuvwxyz"
-    sings    = "!#$%&`()*+,-./:;<=>?@[\\]^_{|}"
-    nums     = "0123456789"
+    password_fragment = choices((ascii_uppercase, ascii_lowercase, punctuation, digits), weights=(1, 3, 2, 1), k=length)
     password = ""
-
-    password_fragment = choices((alphC, alphL, sings, nums), weights=(1, 3, 2, 1), k=length)
     for random_character in password_fragment:
         password += choice(random_character)
     return password
