@@ -1,6 +1,6 @@
 from terminal import Terminal
 
-def main():
+def main() -> None:
     run = True
 
     with Terminal() as manager:

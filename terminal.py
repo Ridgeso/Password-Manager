@@ -27,7 +27,7 @@ class Terminal(database.Database):
             secure.write(new_key.encode("ASCII"))
         return new_key
 
-    def print_setup(self):
+    def print_setup(self) -> None:
         print("""\n###### Hello int your terminal setup ######"""
             """\nWhat do you want to do?"""
             """\n1. Get Pasword"""
@@ -36,7 +36,7 @@ class Terminal(database.Database):
             """\n4. Update Database"""
             """\n5. Exit""")
     
-    def _print_all_accounts(self, accounts):
+    def _print_all_accounts(self, accounts: list[database.Database.Account]) -> None:
         encrypter = security.Hash(self.__key)
         print("""   |        email         |    passwords    |     login     |     site     |        URL"""
             """\n---––––-––––––––––––––––––+–-–––––––––––––––+–––––––––––––––+––––––––––––––+–––––––––––––––––––""")
@@ -45,7 +45,7 @@ class Terminal(database.Database):
             print(f"{i:<2} |{account.email:<22}|{password:<17}|{account.login:<15}|{account.site:<14}|{account.url:<13}")
             print("----––––––––––––––––––––––+-––––––––––––––––+–––––––––––––––+––––––––––––––+–––––––––––––––––––")
 
-    def get_password(self):
+    def get_password(self) -> None:
         column = self._valid_column(("email", "login", "site", "all", ""))
 
         if not column:
@@ -71,7 +71,7 @@ class Terminal(database.Database):
         input("\nPress enter to continue")
 
 
-    def store_password(self):
+    def store_password(self) -> None:
         password = security.create_password()
         encrypted_password = security.Hash(self.__key).cypher(password)
 
@@ -87,7 +87,7 @@ class Terminal(database.Database):
         input("\nData has been added, press enter to continue")
 
 
-    def delete_password(self):
+    def delete_password(self) -> None:
         column = self._valid_column(("email", "login", "site", "all", ""))
         if not column:
             print("Skipped")
@@ -110,7 +110,7 @@ class Terminal(database.Database):
             self.delete(account)
             print("\nData has been deleted")
 
-    def update_password(self):
+    def update_password(self) -> None:
         column = self._valid_column(("email", "login", "site", "url", ""))
         if not column:
             print("Skipped")
@@ -136,7 +136,7 @@ class Terminal(database.Database):
         print("\nData has been updeted")
 
     @staticmethod
-    def _valid_column(fields):
+    def _valid_column(fields: tuple[str]) -> int:
         formated_fields = ' | '.join([field for field in fields if field])
         while (column := input(f"Search query [{formated_fields}]: ")) not in fields: pass
         return column

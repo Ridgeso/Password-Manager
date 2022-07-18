@@ -17,7 +17,7 @@ class Database(metaclass=SingletonMeta):
 
     class Account:
         __slots__ = "id", "email", "password", "login", "site", "url"
-        def __init__(self, email, password, site, login="", url="", id=-1) -> None:
+        def __init__(self, email: str, password: str, site: str, login: str="", url: str="", id: int=-1) -> None:
             self.id = id
             self.email = email
             self.password = password
@@ -26,7 +26,7 @@ class Database(metaclass=SingletonMeta):
             self.url = url
 
         @classmethod
-        def _array_to_account(cls, arr):
+        def _array_to_account(cls, arr: tuple) -> None:
             return cls(arr[1], arr[2], arr[4], arr[3], arr[5], arr[0])
         
         def __repr__(self) -> str:

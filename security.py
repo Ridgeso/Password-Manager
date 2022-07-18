@@ -154,7 +154,7 @@ class AES:
             self.__state[i] = np.array([self.__state[i][(j - i)%4] for j in range(4)], dtype=np.uint8)
 
     @staticmethod
-    def _mul2(x) -> np.uint8:
+    def _mul2(x: np.uint8) -> np.uint8:
         """
         x : 0000 0000 | 8 bits
         2x = (x * 2) +
@@ -164,7 +164,7 @@ class AES:
         return (x<<1) ^ (((x>>7) & 1) * 0x1b)
     
     @staticmethod
-    def _mul3(x) -> np.uint8:
+    def _mul3(x: np.uint8) -> np.uint8:
         """3x = 2x + x"""
         return AES._mul2(x) ^ x
 
