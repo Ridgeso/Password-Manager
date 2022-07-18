@@ -8,7 +8,7 @@ from string import (
 )
 
 
-def create_password(length=16):
+def create_password(length: int=16) -> str:
     password_fragment = choices((ascii_uppercase, ascii_lowercase, punctuation, digits), weights=(1, 3, 2, 1), k=length)
     password = ""
     for random_character in password_fragment:
@@ -17,21 +17,21 @@ def create_password(length=16):
 
 
 class Hash:
-    __slots__ = "aes",
+    __slots__ = "aes", "__key"
 
-    def __init__(self) -> None:
+    def __init__(self, key) -> None:
         self.aes = AES()
+        self.__key = key
 
-    def cypher(self, password):
-        return self.aes.encode(password)
+    def cypher(self, password: str) -> str:
+        return self.aes.encode(password, self.__key)
 
-    def inverse_cypher(self, password):
-        return self.aes.decode(password)
+    def inverse_cypher(self, password: str) -> str:
+        return self.aes.decode(password, self.__key)
 
 
 class AES:
-    __slots__ = "__key", "__roundKey", "__state"
-    KEY_LENGTH = 16
+    __slots__ = "__roundKey", "__state"
     Rows = 4
     BitsNumber = 4
     Rounds = 10
@@ -70,30 +70,13 @@ class AES:
         0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
         0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d], dtype=np.uint8)
     RCon = np.array([0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36], dtype=np.uint8)
-
-    def __init__(self):
-        try:
-            with open("key.bin", "rb") as secure:
-                self.__key = secure.read(self.KEY_LENGTH)
-        except FileNotFoundError:
-            self.__key = self.generate_new_key(_init=True)
-        
-        if not self.__key:
-            self.__key = self.generate_new_key(_init=True)
-
-    def generate_new_key(self, /, _init=False):
-        if not _init:
-            decisiont = input("Are you sure you want to delete old key? [y/n]")
-            if decisiont.upper() in ("NO", "N"):
-                return
-        
-        with open("key.bin", "wb") as secure:
-            new_key = create_password(self.KEY_LENGTH)
-            secure.write(new_key.encode("ASCII"))
-        return new_key
     
-    def encode(self, password):
+    def encode(self, password: str, key: bytes) -> str:
+        assert len(password) == 16, KeyException("Password lenght is not equal 16")
         self.__state = np.frombuffer(bytearray(password.encode("ASCII")), dtype=np.dtype((np.uint8, (4,))))
+
+        assert len(key) == 16, KeyException("Key lenght is not equal 16")
+        self._expend_key(key)
 
         self._encode_state()
         self.__roundKey = None
@@ -103,8 +86,12 @@ class AES:
         
         return encoded_password
     
-    def decode(self, password):
+    def decode(self, password: str, key: bytes)  -> str:
+        assert len(password) == 16, KeyException("Password lenght is not equal 16")
         self.__state = np.frombuffer(bytearray([ord(c) for c in password]), dtype=np.dtype((np.uint8, (4,))))
+
+        assert len(key) == 16, KeyException("Key lenght is not equal 16")
+        self._expend_key(key)
 
         self._decode_state()
         self.__roundKey = None
@@ -114,9 +101,7 @@ class AES:
 
         return decoded_password
 
-    def _encode_state(self):       
-        self._expend_key()
-
+    def _encode_state(self) -> None:
         self._add_round_key(0)
 
         for round in range(1, self.Rounds):
@@ -129,9 +114,7 @@ class AES:
         self._shitf_rows()
         self._add_round_key(self.Rounds)
     
-    def _decode_state(self):
-        self._expend_key() 
-
+    def _decode_state(self) -> None:
         self._add_round_key(self.Rounds)
         self._inv_shitf_rows()
         self._inv_sub_bytes()
@@ -144,8 +127,8 @@ class AES:
         
         self._add_round_key(0)
 
-    def _expend_key(self):
-        self.__roundKey = list(self.__key)
+    def _expend_key(self, key: bytes) -> None:
+        self.__roundKey = list(key)
         for i in range(self.BitsNumber, self.Rows * (self.Rounds+1)):
             k = (i - 1) * 4
             temp = [self.__roundKey[k+j] for j in range(4)]
@@ -157,25 +140,21 @@ class AES:
                 temp = [self.SBox[temp[j]] for j in range(4)]
 
                 temp[0] ^= self.RCon[i//self.BitsNumber-1]
-            
-            # TODO: implement 196 and 256 keys 
-            # elif self.BitsNumber == 8 and i % self.BitsNumber == 4:
-            #     temp = [self.SBox[temp[j]] for j in range(4)]
 
             k = (i - self.BitsNumber) * 4 
             self.__roundKey += [self.__roundKey[k+j]^temp[j] for j in range(4)]
         self.__roundKey = np.array(self.__roundKey, dtype=np.uint8)
 
-    def _shitf_rows(self):
+    def _shitf_rows(self) -> None:
         for i in range(1, 4):
             self.__state[i] = np.array([self.__state[i][(j + i)%4] for j in range(4)], dtype=np.uint8)
     
-    def _inv_shitf_rows(self):
+    def _inv_shitf_rows(self) -> None:
         for i in range(1, 4):
             self.__state[i] = np.array([self.__state[i][(j - i)%4] for j in range(4)], dtype=np.uint8)
 
     @staticmethod
-    def _mul2(x):
+    def _mul2(x) -> np.uint8:
         """
         x : 0000 0000 | 8 bits
         2x = (x * 2) +
@@ -185,11 +164,11 @@ class AES:
         return (x<<1) ^ (((x>>7) & 1) * 0x1b)
     
     @staticmethod
-    def _mul3(x):
+    def _mul3(x) -> np.uint8:
         """3x = 2x + x"""
         return AES._mul2(x) ^ x
 
-    def _mix_columns(self):
+    def _mix_columns(self) -> None:
         for i in range(4):
             a, b, c, d = self.__state[: ,i]
             self.__state[0][i] = self._mul2(a) ^ self._mul3(b) ^ c ^ d # 2a + 3b +  c +  d
@@ -197,23 +176,23 @@ class AES:
             self.__state[2][i] = a ^ b ^ self._mul2(c) ^ self._mul3(d) #  a +  b + 2c + 3d
             self.__state[3][i] = self._mul3(a) ^ b ^ c ^ self._mul2(d) # 3a +  b +  c + 2d
     
-    def _mul_9(self, x):
+    def _mul_9(self, x: np.uint8) -> np.uint8:
         """9x = (((2x) * 2) * 2) + x"""
         return     x ^ self._mul2(self._mul2(self._mul2(x)))
 
-    def _mul11(self, x):
+    def _mul11(self, x: np.uint8) -> np.uint8:
         """11x = ((((2x) * 2) + x) * 2) + x"""
         return x ^ self._mul2(x ^ self._mul2(self._mul2(x)))
     
-    def _mul13(self, x):
+    def _mul13(self, x: np.uint8) -> np.uint8:
         """13x = ((((2x) + x) * 2) * 2) + x"""
         return x ^ self._mul2(self._mul2(x ^ self._mul2(x)))
     
-    def _mul14(self, x):
+    def _mul14(self, x: np.uint8) -> np.uint8:
         """14x = ((((2x) + x) * 2) + x) * 2"""
         return self._mul2(x ^ self._mul2(x ^ self._mul2(x)))
 
-    def _inv_mix_columns(self):
+    def _inv_mix_columns(self) -> None:
         for i in range(4):
             a, b, c, d = self.__state[: ,i]
             self.__state[0][i] = self._mul14(a) ^ self._mul11(b) ^ self._mul13(c) ^ self._mul_9(d) # 14a + 11b + 13c +  9d
@@ -221,18 +200,22 @@ class AES:
             self.__state[2][i] = self._mul13(a) ^ self._mul_9(b) ^ self._mul14(c) ^ self._mul11(d) # 13a +  9b + 14c + 11d
             self.__state[3][i] = self._mul11(a) ^ self._mul13(b) ^ self._mul_9(c) ^ self._mul14(d) # 11a + 13b +  9c + 14d
 
-    def _sub_bytes(self):
+    def _sub_bytes(self) -> None:
         for i in range(4):
             for j in range(4):
                 self.__state[i][j] = self.SBox[self.__state[i][j]]
 
     
-    def _inv_sub_bytes(self):
+    def _inv_sub_bytes(self) -> None:
         for i in range(4):
             for j in range(4):
                 self.__state[i][j] = self.InvSBox[self.__state[i][j]]
     
-    def _add_round_key(self, round):
+    def _add_round_key(self, round: int) -> None:
         for i in range(4):
             for j in range(4):
                 self.__state[i][j] ^= self.__roundKey[round*self.Rows*4 + i*self.Rows + j]
+
+
+class KeyException(Exception):
+    pass
